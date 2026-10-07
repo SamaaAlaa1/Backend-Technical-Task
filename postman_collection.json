@@ -1,0 +1,66 @@
+{
+  "info": {
+    "name": "Posts API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "postId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": { "method": "GET", "url": "{{baseUrl}}/health" }
+    },
+    {
+      "name": "Create post",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('postId', pm.response.json().id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/posts",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Hello Kafka\",\n  \"content\": \"My first event-driven post\",\n  \"author\": \"Samaa\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Create post (invalid -> 400)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/posts",
+        "body": { "mode": "raw", "raw": "{ \"title\": \"missing fields\" }" }
+      }
+    },
+    {
+      "name": "Get post by id",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+          }
+        }
+      ],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/posts/{{postId}}" }
+    },
+    {
+      "name": "List posts",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/posts" }
+    }
+  ]
+}
