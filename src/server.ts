@@ -1,12 +1,34 @@
-import * as dotenv from "dotenv";
+import dotenv from "dotenv";
 dotenv.config();
-import app from "./app";
-import connectDB from "./config/db";
+import { createApp } from "./app";
+import { PostService } from "./application/services/PostService";
+import { connectDB } from "./infrastructure/database/db";
+import { PostRepository } from "./infrastructure/database/repositories/PostRepository";
+import { KafkaEventPublisher } from "./infrastructure/kafka/KafkaEventPublisher";
 
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 3000;
 
-connectDB();
+const main = async () => {
+  await connectDB();
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  const publisher = new KafkaEventPublisher();
+  await publisher.connect();
+
+  const service = new PostService(new PostRepository(), publisher);
+  const server = createApp(service).listen(PORT, () =>
+    console.log(`API listening on port ${PORT}`),
+  );
+
+  const shutdown = async () => {
+    server.close();
+    await publisher.disconnect();
+    process.exit(0);
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+};
+
+main().catch((err) => {
+  console.error("Failed to start API:", err);
+  process.exit(1);
 });
