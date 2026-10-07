@@ -4,10 +4,7 @@ import { PostCreatedConsumer } from "./infrastructure/kafka/PostCreatedConsumer"
 
 const consumer = new PostCreatedConsumer();
 
-consumer.start().catch((err) => {
-  console.error("Failed to start consumer:", err);
-  process.exit(1);
-});
+consumer.start();
 
 const shutdown = async () => {
   await consumer.stop();

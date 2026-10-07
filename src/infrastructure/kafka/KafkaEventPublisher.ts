@@ -1,4 +1,4 @@
-import { Producer } from "kafkajs";
+import { Partitioners, Producer } from "kafkajs";
 import { IEventPublisher } from "../../application/interfaces/IEventPublisher";
 import {
   POST_CREATED_TOPIC,
@@ -6,15 +6,32 @@ import {
 } from "../../domain/events/PostCreatedEvent";
 import { createKafka } from "./kafkaClient";
 
-export class KafkaEventPublisher implements IEventPublisher {
-  private readonly producer: Producer = createKafka("posts-api").producer();
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-  async connect(): Promise<void> {
-    await this.producer.connect();
-    console.log("Kafka producer connected");
+export class KafkaEventPublisher implements IEventPublisher {
+  private readonly producer: Producer = createKafka("posts-api").producer({
+    createPartitioner: Partitioners.DefaultPartitioner,
+  });
+  private connected = false;
+  private stopped = false;
+
+  connectInBackground(): void {
+    void (async () => {
+      while (!this.connected && !this.stopped) {
+        try {
+          await this.producer.connect();
+          this.connected = true;
+          console.log("Kafka producer connected");
+        } catch (err) {
+          console.error("Kafka producer not connected, retrying in 5s:", (err as Error).message);
+          await sleep(5000);
+        }
+      }
+    })();
   }
 
   async publishPostCreated(event: PostCreatedEvent): Promise<void> {
+    if (!this.connected) throw new Error("Kafka producer is not connected yet");
     await this.producer.send({
       topic: POST_CREATED_TOPIC,
       messages: [{ key: event.data.postId, value: JSON.stringify(event) }],
@@ -23,6 +40,7 @@ export class KafkaEventPublisher implements IEventPublisher {
   }
 
   async disconnect(): Promise<void> {
-    await this.producer.disconnect();
+    this.stopped = true;
+    if (this.connected) await this.producer.disconnect();
   }
 }
